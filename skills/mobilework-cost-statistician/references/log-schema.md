@@ -2,7 +2,7 @@
 
 默认来源为 `%USERPROFILE%\.mobilework\xdg\data\opencode\opencode.db`，可通过命令行显式覆盖。该说明记录已核实的日志结构，不代表厂商的长期接口承诺。字段变更需要查看实际记录后修改适配器并重新验证。
 
-message.data 中使用 role、time.created、time.completed、finish、modelID、tokens。只把同时具有完成时间和 finish 的助手消息作为已完成调用；缺少用量时保留缺失。part.data 中读取 type=tool、callID、tool、state.status、state.input、state.metadata.exit 和 state.time。
+message.data 中使用 role、time.created、time.completed、finish、modelID、tokens。只把同时具有完成时间和 finish 的助手消息作为已完成调用；缺少用量时保留缺失。 finish为空、完成时间等于创建时间、无错误且后续有正常完成消息的瞬时过渡记录，不计入调用与Token，也不影响结束判断；尾部未完成消息和运行中工具仍按记录不完整处理。part.data 中读取 type=tool、callID、tool、state.status、state.input、state.metadata.exit 和 state.time。
 
 累计输入为 tokens.input + tokens.cache.read + tokens.cache.write；输出为 tokens.output；缓存读取量为 tokens.cache.read。存在 tokens.total 时核对其等于累计输入加输出，part 中的 step-finish 不再次累计。
 
