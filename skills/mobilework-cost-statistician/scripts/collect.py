@@ -6,12 +6,12 @@ from common import (DataError, assign_users, connection, date_selected, in_scope
 PRODUCT = 'MobileWork'
 SEARCH_TOOL = 'mobilework_search'
 DELIVERY_TOOL = 'result_file'
-METHOD = 'ֻ��opencode.db��session��message��part�������Ϣ��ȡToken��callIDȥ�ع��ߣ�event����ģ�����ԣ�result_file�Ǽ�·�����������'
+METHOD = '只读opencode.db的session、message、part；完成消息读取Token，callID去重工具；event单列模型重试；result_file登记路径核验存在性'
 
 
 def default_source(args):
     if args.logs_root:
-        raise DataError('������ʹ��SQLite����ʹ��--dbָ��Դ')
+        raise DataError('本对象使用SQLite，请使用--db指定源')
     if args.db:
         return Path(args.db).resolve()
     return Path.home()/'.mobilework'/'xdg'/'data'/'opencode'/'opencode.db'
@@ -23,13 +23,13 @@ def collect(source, tasks, args, mapping, tz):
     try:
         tables = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         if not {'session', 'message', 'part'} <= tables:
-            raise DataError('���ݿ�ȱ��session��message��part��')
+            raise DataError('数据库缺少session、message或part表')
         for session in c.execute('SELECT id,parent_id,directory,title,time_created FROM session ORDER BY time_created,id').fetchall():
             sid, directory = session['id'], session['directory']
             if not in_scope(directory, args.workspace) or (args.session and sid not in args.session):
                 continue
             if session['parent_id']:
-                excluded.append({'session': sid, 'source': str(source), 'reason': '�����ӻỰ���̨�Ự��δ����������', 'time_ms': session['time_created']})
+                excluded.append({'session': sid, 'source': str(source), 'reason': '独立子会话或后台会话，未并入主任务', 'time_ms': session['time_created']})
                 continue
             messages = [dict(r) for r in c.execute('SELECT id,time_created,data FROM message WHERE session_id=? ORDER BY time_created,id', (sid,))]
             parts = [dict(r) for r in c.execute('SELECT id,message_id,time_created,data FROM part WHERE session_id=? ORDER BY time_created,id', (sid,))]
@@ -57,7 +57,7 @@ def collect(source, tasks, args, mapping, tz):
                 completed = [m for m in mm if m['json'].get('role') == 'assistant' and m['json'].get('time', {}).get('completed') and m['json'].get('finish')]
                 end = max((m['json']['time']['completed'] for m in completed), default=None)
                 if end is not None and end > until:
-                    raise DataError('�û�����ִ�������ص�����˲���Ϣ�͹��߹�����'+sid)
+                    raise DataError('用户请求执行区间重叠，需核查消息和工具归属：'+sid)
                 usage = [open_usage(m['json'], 'message:'+m['id']) for m in completed]
                 by_id = {}
                 for p in pp:
@@ -66,9 +66,9 @@ def collect(source, tasks, args, mapping, tz):
                         continue
                     cid = j.get('callID')
                     if not cid or not j.get('tool'):
-                        raise DataError('���߼�¼ȱ��callID��tool��part:'+p['id'])
+                        raise DataError('工具记录缺少callID或tool：part:'+p['id'])
                     if cid in by_id and by_id[cid]['json']['tool'] != j['tool']:
-                        raise DataError('ͬһcallID��Ӧ������ߣ�'+cid)
+                        raise DataError('同一callID对应多个工具：'+cid)
                     by_id[cid] = p
                 tools, deliveries = [], []
                 errors_complete = True
@@ -76,9 +76,9 @@ def collect(source, tasks, args, mapping, tz):
                     j = p['json']; st = j.get('state', {}); md = st.get('metadata', {})
                     status = st.get('status'); exitcode = md.get('exit', md.get('exitCode'))
                     if status not in ('completed', 'error', 'pending', 'running'):
-                        raise DataError('����״̬�ֶα仯��part:'+p['id'])
+                        raise DataError('工具状态字段变化：part:'+p['id'])
                     if exitcode is not None and (not isinstance(exitcode, int) or isinstance(exitcode, bool)):
-                        raise DataError('�����˳������ͱ仯��part:'+p['id'])
+                        raise DataError('命令退出码类型变化：part:'+p['id'])
                     if status in ('pending', 'running'):
                         errors_complete = False
                     failed = status == 'error' or exitcode not in (None, 0)
