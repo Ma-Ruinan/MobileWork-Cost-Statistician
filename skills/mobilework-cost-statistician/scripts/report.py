@@ -116,7 +116,7 @@ def worksheet(rows,widths,freeze=0,filter_row=None,merges=None):
 
 
 def excel_report(data,path):
-    runs=data['runs'];tasks=data['tasks'];tz=timezone(data['meta']['timezone'])
+    runs=data['runs'];tasks=[t for t in data['tasks'] if any(r['task']==t['id'] for r in runs)];tz=timezone(data['meta']['timezone'])
     headers=[f'{a} {b}' for a,b in zip(LABELS,UNITS)]
     raw=[list(map(lambda s:value(s,1),['测试ID','题号','独立次数','结果状态','开始时间','结束时间',*headers,'缓存读取Token 万','活动耗时 时分秒','段间等待 时分秒','执行分段数','模型记录','附加条件','会话ID','用户消息ID','来源文件','工作目录','交付路径','页面状态','页面回复','页面依据']))]
     segments=[list(map(lambda s:value(s,1),['测试ID','题号','执行段','段落性质','开始时间','结束时间',*headers,'用户消息ID','说明']))]
@@ -181,7 +181,7 @@ def excel_report(data,path):
     method=[[value('指标口径与来源',2)],[],[value(x,1) for x in ['指标','单位','口径']],*definitions,[],
             ['对象方法',None,data['meta']['method']],['数据来源',None,data['meta']['source']],['采集时间',None,data['meta']['collected_at']],
             ['时区',None,data['meta']['timezone']],['两次读取一致',None,str(data['meta']['read_twice_equal'])],
-            ['数据快照摘要',None,data['meta']['snapshot_sha256']],['未匹配题目',None,'、'.join(data['missing_tasks']) or '无']]
+            ['数据快照摘要',None,data['meta']['snapshot_sha256']]]
     sheets=[('任务均值',summary,[33,32,12,23,22,21,21,18,18,18,18,18],6,None),
             ('逐次记录',raw,[25,11,12,42,29,29,25,22,20,20,18,18,18,18,18,22,25,25,14,25,45,45,45,65,65,65,22,45,45,18,18,65],1,1),
             ('执行分段',segments,[25,11,12,18,29,29,25,22,20,20,18,18,18,18,18,45,48],1,1),
