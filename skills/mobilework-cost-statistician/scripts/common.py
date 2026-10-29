@@ -153,15 +153,18 @@ def open_usage(message, evidence):
     ca = t.get('cache', {})
     inp = number(t['input'], 'tokens.input') if 'input' in t else None
     out = number(t['output'], 'tokens.output') if 'output' in t else None
+    reasoning = number(t['reasoning'], 'tokens.reasoning') if 'reasoning' in t else 0
     read = number(ca['read'], 'tokens.cache.read') if 'read' in ca else None
     write = number(ca['write'], 'tokens.cache.write') if 'write' in ca else None
     total_input = inp + read + write if None not in (inp, read, write) else None
-    if t.get('total') is not None and total_input is not None and out is not None:
-        if number(t['total'], 'tokens.total') != total_input + out:
+    # 推理Token为模型生成内容，计入输出；校验 total = input + cache.read + cache.write + output + reasoning
+    out_total = out + reasoning if out is not None else None
+    if t.get('total') is not None and total_input is not None and out_total is not None:
+        if number(t['total'], 'tokens.total') != total_input + out_total:
             raise DataError('Token合计关系变化，停止输出估计值：' + evidence)
-    return {'input': total_input, 'output': out, 'cache': read, 'calls': 1,
+    return {'input': total_input, 'output': out_total, 'cache': read, 'calls': 1,
             'model': message.get('modelID'), 'evidence': evidence,
-            'warning': '用量字段不完整' if None in (total_input, out, read) else None}
+            'warning': '用量字段不完整' if None in (total_input, out_total, read) else None}
 
 
 def sum_known(values):
